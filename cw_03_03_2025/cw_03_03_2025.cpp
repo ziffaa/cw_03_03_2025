@@ -75,12 +75,12 @@ BOOL CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 			LRESULT resB = SendMessage(hCheckB, BM_GETCHECK, 0, 0);
 			if (resT == BST_CHECKED)
 			{
-				HANDLE hThread = CreateThread(NULL, 0, WriteText, 0, 0, NULL);
+				hThread = CreateThread(NULL, 0, WriteText, 0, 0, NULL);
 				CloseHandle(hThread);
 			}
 			if (resB == BST_CHECKED)
 			{
-				HANDLE hThread = CreateThread(NULL, 0, WriteBinary, 0, 0, NULL);
+				hThread = CreateThread(NULL, 0, WriteBinary, 0, 0, NULL);
 				CloseHandle(hThread);
 			}
 		}
