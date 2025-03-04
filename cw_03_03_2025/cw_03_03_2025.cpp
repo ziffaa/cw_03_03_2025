@@ -1,90 +1,100 @@
-#include <windows.h>
-#include <windowsX.h>
+п»ї#include <windows.h>
 #include <tchar.h>
 #include "resource.h"
 #include <fstream>
-#include <time.h>
+#include <string>
 
-HWND hEdit, hCheckT, hCheckB;
-HANDLE hThread;
+int amountCopies = 3;
+CRITICAL_SECTION cs;
 
 BOOL CALLBACK DlgProc(HWND, UINT, WPARAM, LPARAM);
 
-CRITICAL_SECTION cs;
-
-DWORD WINAPI WriteText(LPVOID lp)
+DWORD WINAPI WriteToFiles(LPVOID lp)
 {
-	EnterCriticalSection(&cs);
-	std::ofstream out(TEXT("text.txt"));
-	int size = GetWindowTextLength(hEdit) + 1;
-	TCHAR* buffer = new TCHAR[size];
-	GetWindowText(hEdit, buffer, size);
-	for (int i = 0; i < size - 1; i++)
-	{
-		out << (char)buffer[i];
-	}
-	out.close();
-	delete[] buffer;
-	MessageBox(0, TEXT("Поток записал информацию в файл"), TEXT("Критическая секция"), MB_OK);
-	LeaveCriticalSection(&cs);
-	return 0;
+    EnterCriticalSection(&cs);
+
+    std::ifstream in("source.txt");
+    if (!in) {
+        LeaveCriticalSection(&cs);
+        return 1;
+    }
+
+    std::string line;
+    std::string content;
+
+    while (std::getline(in, line)) {
+        content += line + "\n";
+    }
+    in.close();
+
+    for (int i = 0; i < amountCopies; i++)
+    {
+        char fname[10];
+        sprintf_s(fname, "%d.txt", i);
+        std::ofstream out(fname);
+        if (out) {
+            out << content;
+            out.close();
+        }
+    }
+
+    LeaveCriticalSection(&cs);
+    return 0;
 }
 
-DWORD WINAPI WriteBinary(LPVOID lp)
+DWORD WINAPI ReadFromFiles(LPVOID lp)
 {
-	EnterCriticalSection(&cs);
-	std::ofstream out(TEXT("binary.bin"), std::ios::binary);
-	int size = GetWindowTextLength(hEdit) + 1;
-	TCHAR* buffer = new TCHAR[size];
-	GetWindowText(hEdit, buffer, size);
-	for (int i = 0; i < size - 1; i++)
-	{
-		out << (char)buffer[i];
-	}
-	out.close();
-	delete[] buffer;
-	MessageBox(0, TEXT("Поток записал информацию в файл"), TEXT("Критическая секция"), MB_OK);
-	LeaveCriticalSection(&cs);
-	return 0;
-}
+    EnterCriticalSection(&cs);
 
+    std::ofstream result("result.txt");
+    if (!result) {
+        LeaveCriticalSection(&cs);
+        return 1;
+    }
+
+    for (int i = 0; i < amountCopies; i++)
+    {
+        char fname[10];
+        sprintf_s(fname, "%d.txt", i);
+        std::ifstream in(fname);
+
+        if (in) {
+            std::string line;
+            while (std::getline(in, line)) {
+                result << line << "\n";
+            }
+            in.close();
+        }
+    }
+
+    result.close();
+    LeaveCriticalSection(&cs);
+    return 0;
+}
 
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE hPrevInst, LPTSTR lpszCmdLine, int nCmdShow)
 {
-	return DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, (DLGPROC)DlgProc);
+    return DialogBox(hInstance, MAKEINTRESOURCE(IDD_DIALOG1), NULL, (DLGPROC)DlgProc);
 }
 
 BOOL CALLBACK DlgProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	switch (message)
-	{
-	case WM_INITDIALOG:
-		hEdit = GetDlgItem(hWnd, IDC_EDIT1);
-		hCheckT = GetDlgItem(hWnd, IDC_CHECK1);
-		hCheckB = GetDlgItem(hWnd, IDC_CHECK2);
-		InitializeCriticalSection(&cs);
-		return TRUE;
-	case WM_CLOSE:
-		EndDialog(hWnd, 0);
-		DeleteCriticalSection(&cs);
-		return TRUE;
-	case WM_COMMAND:
-		if (LOWORD(wParam) == IDC_BUTTON1)
-		{
-			LRESULT resT = SendMessage(hCheckT, BM_GETCHECK, 0, 0);
-			LRESULT resB = SendMessage(hCheckB, BM_GETCHECK, 0, 0);
-			if (resT == BST_CHECKED)
-			{
-				hThread = CreateThread(NULL, 0, WriteText, 0, 0, NULL);
-				CloseHandle(hThread);
-			}
-			if (resB == BST_CHECKED)
-			{
-				hThread = CreateThread(NULL, 0, WriteBinary, 0, 0, NULL);
-				CloseHandle(hThread);
-			}
-		}
-		return TRUE;
-	}
-	return FALSE;
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        InitializeCriticalSection(&cs);
+        return TRUE;
+    case WM_CLOSE:
+        EndDialog(hWnd, 0);
+        DeleteCriticalSection(&cs);
+        return TRUE;
+    case WM_COMMAND:
+        if (LOWORD(wParam) == IDC_BUTTON1)
+        {
+            CreateThread(NULL, 0, WriteToFiles, 0, 0, NULL);
+            CreateThread(NULL, 0, ReadFromFiles, 0, 0, NULL);
+            return TRUE;
+        }
+    }
+    return FALSE;
 }

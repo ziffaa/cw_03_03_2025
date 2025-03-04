@@ -14,8 +14,6 @@
 #define IDR_MAINFRAME                   128
 #define IDD_DIALOG1                     129
 #define IDC_BUTTON1                     1000
-#define IDC_EDIT1                       1001
-#define IDC_CHECK1                      1002
 #define IDC_CHECK2                      1003
 #define IDC_STATIC                      -1
 
